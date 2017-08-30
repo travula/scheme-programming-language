@@ -1,0 +1,16 @@
+.Trashes
+*~
+*.sw[p|o]
+\#*\#
+.\#*\#
+build/
+elisp/
+org-templates/
+style/
+src/org-templates
+src/style
+sitemap*
+lint_output
+elisp          
+literate-tools/
+*.rkt

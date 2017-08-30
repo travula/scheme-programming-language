@@ -1,0 +1,497 @@
+* Imports
+#+BEGIN_SRC racket :tangle second.rkt
+#lang racket
+(require rackunit)
+(require racket/trace)
+
+#+END_SRC
+* Exercise 2.2.4
+#+BEGIN_EXAMPLE
+  (car (car '((a b) (c d)))) yields a. Determine which compositions of car and
+  cdr applied to ((a b) (c d)) yield b, c, and d.
+#+END_EXAMPLE
+
+#+BEGIN_SRC racket :tangle second.rkt
+(define get-a (car (car '((a b) (c d)))))
+(check-equal? get-a 'a)
+
+(define get-b (car (cdr (car '((a b) (c d))))))
+(check-equal? get-b 'b)
+
+(define get-c (car (car (cdr '((a b) (c d))))))
+(check-equal? get-c 'c)
+
+(define get-d (first (rest (first (rest '((a b) (c d)))))))
+(check-equal? get-d 'd)
+
+#+END_SRC
+* [[http://scheme.com/tspl4/start.html#./start:h0][Excercise 2.2.5]]
+  Write a Scheme expression that evaluates to the following internal list
+  structure. 
+#+BEGIN_SRC racket :tangle second.rkt
+(define my-list
+  (cons
+   (cons 'a
+         (cons 'b '()))
+   (cons
+    (cons
+     (cons 'c '())
+     (cons 'd '()))
+    (cons '() '()))))
+  
+#+END_SRC
+  
+* Binding (lexical scope)
+#+BEGIN_SRC racket :tangle second.rkt
+
+(check-equal? (let ([x 5]
+                    [y 11])
+                (let ([y 10])
+                  (+ x y))) 15)
+
+
+(check-equal? (let ([x 5]
+                    [y 11])
+                (let ([y 10])
+                  (+ x y))
+                (+ x y)) 16)
+
+#+END_SRC
+
+* Lambda Expressions
+#+BEGIN_SRC racket :tangle second.rkt
+(check-equal? (let ([x 'a])
+                (let ([f (lambda(y) (list x y))])
+                  (f 'b)))
+              '(a b))
+
+
+(check-equal? (let ([double (lambda (x) (+ x x))])
+                (list (double (* 3 4))
+                      (double (/ 99 11))
+                      (double (- 2 7))))
+              '(24 18 -10))
+              
+
+#+END_SRC
+
+** let and lambda equivalence
+   The below expressions produce the same result.
+
+#+BEGIN_SRC racket :tangle second.rkt
+(check-equal? (let ([x 'a])
+                (cons x x))
+              ((lambda (x)
+                 (cons x x)) 'a) "let and lambda equivalence")
+
+#+END_SRC
+
+** How arguments to list are defined?
+   There are three ways to pass arguments to lambda
+   1. bind vars to parameters.  The parameter =4= is bound to =x= and parameter
+      =5= is bound to =y=
+#+BEGIN_SRC racket :tangle second.rkt
+(check-equal? ((lambda (x y)
+                 x) 4 5)
+              4)
+#+END_SRC
+
+   2. bind parameters to a list x
+
+#+BEGIN_SRC racket :tangle second.rkt
+(check-equal? ((lambda x
+                 x) 1 2 3)
+              '(1 2 3))
+#+END_SRC
+
+   3. Mix of 1 & 2.
+
+#+BEGIN_SRC racket :tangle second.rkt
+(check-equal? ((lambda (x y . z)
+                 (list x y z)) 4 5 6 7 8)
+              '(4 5 (6 7 8)))
+#+END_SRC
+
+* Exercise 2.5.2
+#+BEGIN_SRC racket :tangle second.rkt
+(define m-list
+  (lambda x
+    x))
+
+(check-equal? (m-list 1 2 3) (list 1 2 3))
+#+END_SRC
+
+* Doubler
+#+BEGIN_SRC racket :tangle second.rkt
+(define doubler
+  (lambda (f)
+    (lambda (x) (f x x))))
+
+(define double-any
+  (lambda (f x)
+    ((doubler f) x)))
+
+(check-equal? (double-any + 3) 6)
+(check-equal? (double-any cons 'a) (cons 'a 'a))
+
+#+END_SRC
+
+* Conditions
+#+BEGIN_SRC racket :tangle second.rkt
+(define abs
+  (lambda (n)
+    ((if (>= n 0) + -)
+     0
+     n)))
+
+(check-equal? (abs 5) 5 "abs-one")
+(check-equal? (abs -5) 5 "abs-one")
+
+(define reciprocal
+  (lambda (n)
+    (if (= n 0)
+        "oops"
+        (/ 1 n))))
+
+(check-equal? (reciprocal 0) "oops" "reci-one")
+
+(define reciprocal-2
+  (lambda (n)
+    (if (and (number? 0) (not (= n 0)))
+        (/ 1 n)
+        "oops")))
+
+(check-equal? (reciprocal-2 10) (/ 1 10) "reci-two")
+
+(define sign
+  (lambda (n)
+    (if (< n 0)
+        -1
+        (if (> n 0)
+            +1
+            0))))
+
+(check-equal? (sign 10) 1 "sign-one")
+(check-equal? (sign -10) -1 "sign-two")
+
+(define csign
+  (lambda (n)
+      (cond
+        [(< n 0) -1]
+        [(> n 0) 1]
+        [else 0])))
+
+(check-equal? (csign -10) -1 "csign-1")
+(check-equal? (csign 10) 1 "csign-2")
+
+#+END_SRC
+
+
+* Exercise 2.7.2
+  The procedure length returns the length of its argument, which must be a
+  list. For example, (length '(a b c)) is 3. Using length, define the procedure
+  shorter, which returns the shorter of two list arguments. Have it return the
+  first list if they have the same length.
+
+  (shorter '(a b) '(c d e)) ==> (a b)
+  (shorter '(a b) '(c d)) ==> (a b)
+  (shorter '(a b) '(c)) ==> (c) 
+
+#+BEGIN_SRC racket :tangle second.rkt
+(define length
+  (lambda (ls)
+    (letrec ([length (lambda (ls len)
+                       (cond
+                         [(null? ls) len]
+                         [else (length (cdr ls) (+ 1 len))]))])
+      (length ls 0))))
+
+(define shorter
+  (lambda (ls1 ls2)
+    (cond
+      [(<= (length ls1) (length ls2)) ls1]
+      [else ls2])))
+
+(check-equal? (shorter '(a b) '(c d e)) '(a b))
+(check-equal? (shorter '(a b) '(c d)) '(a b))
+(check-equal? (shorter '(a b) '(c)) '(c))
+
+#+END_SRC  
+
+* Recursion
+** list-copy
+#+BEGIN_EXAMPLE
+(list-copy '()) ==> ()
+(list-copy '(a b c)) ==> (a b c)
+#+END_EXAMPLE
+
+#+BEGIN_SRC racket :tangle second.rkt
+(define list-copy
+  (lambda (ls)
+    (cond
+      [(null? ls) '()]
+      [else (cons (car ls) (list-copy (cdr ls)))])))
+
+#+END_SRC
+** remv
+#+BEGIN_EXAMPLE
+(check-equal? (remv 'a '(a b b d)) ==> (b b d)
+(remv 'b '(a b b d)) ==> (a d)
+(remv 'c '(a b b d)) ==> (a b b d)
+(remv 'd '(a b b d)) ==> (a b b)
+#+END_EXAMPLE
+
+#+BEGIN_SRC racket :tangle second.rkt
+(define remv
+  (lambda (x ls)
+    (cond
+      [(null? ls) ls]
+      [(eqv? x (car ls))
+       (remv x (cdr ls))]
+      [else
+       (cons (car ls) (remv x (cdr ls)))])))
+
+(check-equal? (remv 'a '(a b b d)) '(b b d))
+(check-equal? (remv 'b '(a b b d)) '(a d))
+(check-equal? (remv 'c '(a b b d)) '(a b b d))
+(check-equal? (remv 'd '(a b b d)) '(a b b))
+
+#+END_SRC
+
+** Tree Copy
+#+BEGIN_EXAMPLE
+(tree-copy '((a . b) . c)) ==> ((a . b) . c)
+#+END_EXAMPLE
+
+#+BEGIN_SRC racket :tangle second.rkt
+(define tree-copy
+  (lambda (tree)
+    (cond
+      [(not (pair? tree)) tree]
+      [else (cons (tree-copy (car tree)) (tree-copy (cdr tree)))])))
+
+(define tree-rcopy
+  (lambda (tree)
+    (cond
+      [(not (pair? tree)) tree]
+      [else (cons (tree-rcopy (cdr tree)) (tree-rcopy (car tree)))])))
+
+(check-equal? (tree-copy '((a . b) . c)) '((a . b) . c))
+(check-equal? (tree-rcopy '((a . b) . c)) '(c . (b . a)))
+
+#+END_SRC
+
+* Map
+#+BEGIN_EXAMPLE
+(abs-all '(1 -2 3 -4 5 -6)) ==> (1 2 3 4 5 6)
+#+END_EXAMPLE
+
+#+BEGIN_SRC racket :tangle second.rkt
+(define abs-all
+  (lambda (ls)
+    (cond
+      [(null? ls) '()]
+      [else (cons (abs (car ls)) (abs-all (cdr ls)))])))
+
+(check-equal? (abs-all '(1 -2 3 -5 6 -7))
+              '(1 2 3 5 6 7)
+              "abs all")
+
+(check-equal? (map (lambda (x) (abs x)) '(1 -2 3 -5 6 -7))
+              '(1 2 3 5 6 7)
+              "abs map")
+
+(check-equal? (map (lambda (x) (* x x)) '(1 -2 3 -5 6 -7))
+              '(1 4 9 25 36 49)
+              "square map")
+
+(check-equal? (map cons '(1 2 3) '(a b c))
+              '((1 . a) (2 . b) (3 . c))
+              "map with two lists")
+
+(check-equal? (map + '(1 2 3) '(4 5 6))
+              '(5 7 9)
+              "map add with two lists")
+
+(define map1
+  (lambda (f ls)
+    (cond
+      [(null? ls) '()]
+      [else (cons (f (car ls)) (map1 f (cdr ls)))])))
+
+(check-equal? (map1 (lambda (x) (* x x)) '(1 -2 3 -5 6 -7))
+              '(1 4 9 25 36 49)
+              "my own map")
+#+END_SRC
+
+
+* Append ex 2.8.2
+#+BEGIN_SRC racket :tangle second.rkt
+(define my-append
+  (lambda (x y)
+    (letrec [(append
+              (lambda (x y)
+                (cond
+                  [(null? x) y]
+                  [(append (cdr x) (cons (car x) y))])))]
+      (append (reverse x) y))))
+
+(check-equal? (my-append '(1 2 3) '(4 5 6)) '(1 2 3 4 5 6) "my-append")
+
+#+END_SRC
+
+* make list ex 2.8.3
+#+BEGIN_SRC racket :tangle second.rkt
+(define make-list
+  (lambda (num obj)
+    (cond
+      [(= num 0) '()]
+      [(cons obj (make-list (- num 1) obj))])))
+
+(check-equal? (make-list 5 7) '(7 7 7 7 7) "make-list passes")
+
+#+END_SRC
+
+
+* List Ref Ex. 2.8.4
+
+#+BEGIN_EXAMPLE
+(list-ref '(1 2 3 4) 0) ==> 1
+(list-ref '(a short (nested) list) 2) ==> (nested)
+#+END_EXAMPLE
+
+Given an index, the element at that reference in a list is returned.  The list
+is peeled to get to the index and the element at the index is returned.
+
+#+BEGIN_SRC racket :tangle second.rkt
+
+(define list-ref
+  (lambda (list ind)
+    (cond
+      [(= ind 0) (car list)]
+      [(list-ref (cdr list) (- ind 1))])))
+
+(check-equal? (list-ref '(1 2 3) 0) 1 "list-ref")
+(check-equal? (list-ref '(1 2 3) 1) 2 "list-ref")
+
+#+END_SRC
+
+* Tail Ref Ex. 2.8.4
+
+#+BEGIN_EXAMPLE
+(list-tail '(1 2 3 4) 0) ==> (1 2 3 4)
+(list-tail '(a short (nested) list) 2) ==> ((nested) list)
+#+END_EXAMPLE
+
+Given an index, all the elements from the index in a the given list are
+returned as a list. 
+
+#+BEGIN_SRC racket :tangle second.rkt
+(define tail-ref
+  (lambda (list ind)
+    (cond
+      [(= ind 0) list]
+      [(tail-ref (cdr list) (- ind 1))])))
+
+(check-equal? (tail-ref '(1 2 3) 0) '(1 2 3) "tail-ref")
+(check-equal? (tail-ref '(1 2 3) 1) '(2 3) "tail-ref")
+
+#+END_SRC
+
+* Shorter of the two lists
+Exercise 2.7.2 had you use length in the definition of shorter, which returns
+the shorter of its two list arguments, or the first if the two have the same
+length. Write shorter without using length. [Hint: Define a recursive helper,
+shorter?, and use it in place of the length comparison.]
+
+Recursively shorten the lists and the one that is null after a certain point is
+the shorter one of the two.
+
+#+BEGIN_SRC racket :tangle second.rkt
+
+(define n-shorter
+  (lambda (ls1 ls2)
+    (letrec [(shorter?
+              (lambda (ls1 ls2)
+                (cond
+                  [(null? ls1) #t]
+                  [(null? ls2) #f]
+                  [else (shorter? (cdr ls1) (cdr ls2))])))]
+      (cond
+        [(shorter? ls1 ls2) ls1]
+        [else ls2]))))
+
+(check-equal? (n-shorter '(a b) '(c d e)) '(a b))
+(check-equal? (n-shorter '(a b) '(c d)) '(a b))
+(check-equal? (n-shorter '(a b) '(c)) '(c))
+
+#+END_SRC
+
+* Even and Odd
+Exercise 2.8.6.  All of the recursive procedures shown so far have been
+directly recursive.  That is, each procedure directly applies itself to a new
+argument.  It is also possible to write two procedures that use each other,
+resulting in indirect recursion. Define the procedures odd? and even?, each in
+terms of the other. [Hint: What should each return when its argument is 0?]
+
+#+BEGIN_EXAMPLE
+(even? 17) ==> #f
+(odd? 17) ==>  #t 
+#+END_EXAMPLE
+
+#+BEGIN_SRC racket :tangle second.rkt
+(define even?
+  (lambda (num)
+    (cond
+      [(eq? (modulo num 2) 0) #t]
+      [else #f])))
+
+(define odd?
+  (lambda (num)
+    (cond
+      [(eq? (modulo num 2) 0) #f]
+      [else #t])))
+
+(check-equal? (odd? 10) #f "odd? false")
+(check-equal? (odd? 11) #t "odd? true")
+(check-equal? (even? 10) #t "even? true")
+(check-equal? (even? 11) #f "even? false")
+
+#+END_SRC
+
+* Map to define Transpose
+
+Use map to define a procedure, transpose, that takes a list of pairs and
+returns a pair of lists as follows.
+
+#+BEGIN_EXAMPLE
+(transpose '((a . 1) (b . 2) (c . 3))) ==> ((a b c) 1 2 3)
+
+[Hint: ((a b c) 1 2 3) is the same as ((a b c) . (1 2 3)).] 
+#+END_EXAMPLE
+
+Read each pair, append the first to the first list, append the second to the
+second list, and when there are no more pairs left, construct a pair of these
+two created lists.
+
+#+BEGIN_SRC racket :tangle second.rkt
+(define transpose
+  (lambda (pl)
+    (letrec ([f-l
+              (lambda (pl)
+                (cond
+                  [(null? pl) '()]
+                  [else (append (list (car (car pl))) (f-l (cdr pl)))]))]
+             [s-l
+              (lambda (pl)
+                (cond
+                  [(null? pl) '()]
+                  [else (append (list (cdr (car pl))) (s-l (cdr pl)))]))])
+      
+      (cons (f-l pl) (s-l pl)))))
+
+(check-equal? (transpose '((a . 1) (b . 2) (c . 3))) '((a b c) 1 2 3) "transpose")
+
+#+END_SRC
+
+
